@@ -7,18 +7,18 @@ let writeableStream = fs.createWriteStream(filePath);
 
 let rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout,
+  output: process.stdout
 });
 
 fs.open(filePath, "w", (err) => {
   if (err) throw err;
-  console.log("Введите текст: ");
+  console.log("Введите текст:");
   rl.prompt();
 });
 
 rl.addListener("line", (data) => {
   if (data.toString().trim() === "exit") {
-    console.log("Досвидания!");
+    console.log("Сессия закончена. Файл удалён. Удачи!");
     fs.unlink(filePath, (err) => {
       if (err) throw err;
     });
@@ -30,7 +30,7 @@ rl.addListener("line", (data) => {
 });
 
 rl.addListener("SIGINT", () => {
-  console.log("Досвидания!");
+  console.log("Сессия закончена. Файл удалён. Удачи!");
   fs.unlink(filePath, (err) => {
     if (err) throw err;
   });

@@ -2,12 +2,8 @@ const fs = require("fs");
 const path = require("path");
 const stylesPath = path.resolve(__dirname, "styles");
 const bundlePath = path.resolve(__dirname, "project-dist", "style.css");
-const fontsPath = path.resolve(__dirname, "assets/fonts");
-const imgPath = path.resolve(__dirname, "assets/img");
-const svgPath = path.resolve(__dirname, "assets/svg");
-const newFontsPath = path.resolve(__dirname, "project-dist/assets/fonts");
-const newImgPath = path.resolve(__dirname, "project-dist/assets/img");
-const newSvgPath = path.resolve(__dirname, "project-dist/assets/svg");
+const assetsPath = path.resolve(__dirname, "assets");
+const newAssetsPath = path.resolve(__dirname, "project-dist/assets");
 
 async function createFolder() {
   let folder = path.resolve(__dirname, "project-dist");
@@ -26,6 +22,8 @@ async function copyFolder(original, copy) {
           path.join(original, arrayFiles[i]),
           path.join(copy, arrayFiles[i])
         );
+      } else if (stats.isDirectory()) {
+        copyFolder(`${original}\\${arrayFiles[i]}`, `${copy}\\${arrayFiles[i]}`)
       } else if (err) throw err;
     });
   }
@@ -60,6 +58,36 @@ async function assembleBundle() {
   writeStream.end();
 }
 
+function searchReplaceFile(reg, replace, fileName) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createReadStream(fileName, "utf8");
+    let newHtml = "";
+
+    file.on("data", (chunk) => {
+      newHtml += chunk.toString().replace(reg, replace);
+    });
+
+    file.on("end", () => {
+      fs.writeFile(fileName, newHtml, (err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  });
+}
+
+const readFileAsPromise = (FilePath) => {
+  return new Promise((resolve, reject) => {
+    fs.readFile(FilePath, "utf8", function (error, data) {
+      if (error) reject(err);
+      resolve(data);
+    });
+  });
+};
+
 async function createTemplate() {
   let readStream = fs.createReadStream(
     path.resolve(__dirname, "template.html"),
@@ -71,53 +99,25 @@ async function createTemplate() {
   );
   readStream.pipe(writeStram);
 
-  setTimeout(async function replaceTemplate() {
-    function searchReplaceFile(reg, replace, fileName) {
-      var file = fs.createReadStream(fileName, "utf8");
-      var newHtml = "";
+  const folderPath = path.join(__dirname, "components");
+  const arrayFiles = await fs.promises.readdir(folderPath);
+  const fileName = path.resolve(__dirname, "project-dist", "index.html");
 
-      file.on("data", function (chunk) {
-        newHtml += chunk.toString().replace(reg, replace);
-      });
-
-      file.on("end", function () {
-        fs.writeFile(fileName, newHtml, function (err) {
-          if (err) {
-            return console.log(err);
-          } else {
-          }
-        });
-      });
-    }
-    const readFileAsPromise = (FilePath) => {
-      return new Promise ((resolve, reject) => {
-        fs.readFile(FilePath, "utf8", function (error, data) {
-          if (error) reject(err); 
-          resolve(data);
-        });
-      })
-    }
-    const folderPath = path.join(__dirname, "components");
-    const arrayFiles = await fs.promises.readdir(folderPath);
-    const fileName = path.resolve(__dirname, "project-dist", "index.html");
-    for (let i = 0; i < arrayFiles.length; i++) {
-      let extFile = path.extname(arrayFiles[i]);
-      let nameFile = path.basename(arrayFiles[i], extFile);
-      let reg = new RegExp("{{" + nameFile + "}}");
-      let readFilePath = path.resolve(__dirname, "components", arrayFiles[i]);
-      let readFile = await readFileAsPromise(readFilePath)
-      searchReplaceFile(reg, readFile, fileName);
-    }
-  }, 10);
+  for (let i = 0; i < arrayFiles.length; i++) {
+    let extFile = path.extname(arrayFiles[i]);
+    let nameFile = path.basename(arrayFiles[i], extFile);
+    let reg = new RegExp("{{" + nameFile + "}}");
+    let readFilePath = path.resolve(__dirname, "components", arrayFiles[i]);
+    let readFile = await readFileAsPromise(readFilePath);
+    searchReplaceFile(reg, readFile, fileName);
+  }
 }
 
 async function buildPage() {
   await createFolder();
   createTemplate();
   assembleBundle();
-  copyFolder(fontsPath, newFontsPath);
-  copyFolder(imgPath, newImgPath);
-  copyFolder(svgPath, newSvgPath);
+  copyFolder(assetsPath, newAssetsPath);
 }
 
 buildPage();
