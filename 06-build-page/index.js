@@ -16,16 +16,15 @@ async function copyFolder(original, copy) {
   await fs.promises.mkdir(copy, { recursive: true });
   const arrayFiles = await fs.promises.readdir(original);
   for (let i = 0; i < arrayFiles.length; i++) {
-    fs.stat(path.resolve(original, arrayFiles[i]), (err, stats) => {
-      if (!stats.isDirectory()) {
-        fs.promises.copyFile(
-          path.join(original, arrayFiles[i]),
-          path.join(copy, arrayFiles[i])
-        );
-      } else if (stats.isDirectory()) {
-        copyFolder(`${original}\\${arrayFiles[i]}`, `${copy}\\${arrayFiles[i]}`)
-      } else if (err) throw err;
-    });
+    const stats = await fs.promises.stat(path.resolve(original, arrayFiles[i]));
+    if (!stats.isDirectory()) {
+      await fs.promises.copyFile(
+         path.join(original, arrayFiles[i]),
+         path.join(copy, arrayFiles[i])
+       );
+     } else if (stats.isDirectory()) {
+      await copyFolder(`${original}\\${arrayFiles[i]}`, `${copy}\\${arrayFiles[i]}`)
+     }
   }
 }
 
@@ -64,7 +63,7 @@ function searchReplaceFile(reg, replace, fileName) {
     let newHtml = "";
 
     file.on("data", (chunk) => {
-      newHtml += chunk.toString().replace(reg, replace);
+      newHtml += chunk.toString().replaceAll(reg, replace);
     });
 
     file.on("end", () => {
@@ -106,7 +105,7 @@ async function createTemplate() {
   for (let i = 0; i < arrayFiles.length; i++) {
     let extFile = path.extname(arrayFiles[i]);
     let nameFile = path.basename(arrayFiles[i], extFile);
-    let reg = new RegExp("{{" + nameFile + "}}");
+    let reg = new RegExp("{{" + nameFile + "}}", 'g');
     let readFilePath = path.resolve(__dirname, "components", arrayFiles[i]);
     let readFile = await readFileAsPromise(readFilePath);
     searchReplaceFile(reg, readFile, fileName);
@@ -115,9 +114,10 @@ async function createTemplate() {
 
 async function buildPage() {
   await createFolder();
+  await copyFolder(assetsPath, newAssetsPath);
   createTemplate();
   assembleBundle();
-  copyFolder(assetsPath, newAssetsPath);
+  
 }
 
 buildPage();
